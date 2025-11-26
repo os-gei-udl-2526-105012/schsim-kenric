@@ -69,7 +69,7 @@ int getCurrentBurst(Process* proc, int current_time){
 
 int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modality, int quantum){
 
-    Process * _proclist;
+    //Process * _proclist;
 
     qsort(procTable,nprocs,sizeof(Process),compareArrival);
 
@@ -87,6 +87,64 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].completed = false;
     }
 
+    int current_time = 0;
+    int completed_procs = 0;
+    Process* running_process = NULL;
+    int next_proc_index = 0;
+    int quantum_spent = 0;
+
+    while(completed_procs < nprocs) {
+        // Meter en la cola los procesos que llegan
+        while (next_proc_index < nprocs && procTable[next_proc_index].arrive_time == current_time) {
+            enqueue(&procTable[next_proc_index]);
+            next_proc_index++;
+        }
+        
+        //Pintar procesos en cola de espera
+        for (int i = 0; i < nprocs; i++){
+            if(procTable[i].arrive_time <= current_time && !procTable[i].completed) {
+                if (running_process == NULL || procTable[i].id != running_process->id) {
+                    procTable[i].lifecycle[current_time] = Ready;
+                }
+            }
+        }
+
+        // Si la cpu no tiene un proceso hay que darselo
+        if (running_process == NULL) {
+            switch (algorithm) {
+                case FCFS:
+                    running_process = dequeue();
+                    break;
+                case RR:
+                    running_process = dequeue();
+                    quantum_spent = 0;
+                    break;
+                case PRIORITIES:
+                    break;
+            }
+        }
+
+        // Una vez la cpu tiene proceso, trabajar con el
+        if (running_process != NULL) {
+           
+            running_process->lifecycle[current_time] = Running;
+            int proc_worked_time = getCurrentBurst(running_process, current_time) + 1;
+            quantum_spent ++;
+            
+            if (proc_worked_time == running_process->burst) {
+                running_process->lifecycle[current_time + 1] = Finished;
+                running_process->completed = true;
+                running_process = NULL;
+                completed_procs++;
+            } else if (algorithm == RR && quantum_spent == quantum) {
+                enqueue(running_process);
+                running_process = NULL;
+            }
+        }
+        
+        current_time++;
+    }
+
     printSimulation(nprocs,procTable,duration);
 
     for (int p=0; p<nprocs; p++ ){
@@ -95,7 +153,6 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
 
     cleanQueue();
     return EXIT_SUCCESS;
-
 }
 
 
