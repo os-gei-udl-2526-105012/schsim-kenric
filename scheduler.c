@@ -108,13 +108,15 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
                     
                     if (algorithm == PRIORITIES) {
                         if (comparePriority(&procTable[i], running_process) == -1) { 
-                            should_preempt = 1; break; 
+                            should_preempt = 1; 
+                            break; 
                         }
                     } else { // SJF
                          int current_worked = getCurrentBurst(running_process, current_time);
                          int remaining_current = running_process->burst - current_worked;
                          if (procTable[i].burst < remaining_current) { 
-                             should_preempt = 1; break;
+                             should_preempt = 1; 
+                             break;
                          }
                     }
                 }
