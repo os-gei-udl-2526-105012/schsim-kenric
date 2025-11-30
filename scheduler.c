@@ -172,7 +172,11 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
 
         // Una vez la cpu tiene proceso, trabajar con el
         if (running_process != NULL) {
-           
+            
+            if(getCurrentBurst(running_process, current_time) == 0) {
+                running_process->response_time = current_time - running_process->arrive_time;
+            }
+
             running_process->lifecycle[current_time] = Running;
             int proc_worked_time = getCurrentBurst(running_process, current_time) + 1;
             if (algorithm == RR) { quantum_spent ++; }
@@ -180,6 +184,11 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
             if (proc_worked_time == running_process->burst) {
                 running_process->lifecycle[current_time + 1] = Finished;
                 running_process->completed = true;
+
+                int finish_time = current_time + 1;
+                running_process->return_time = finish_time - running_process->arrive_time;
+                running_process->waiting_time = running_process->return_time - running_process->burst;
+
                 running_process = NULL;
                 completed_procs++;
             } 
@@ -194,6 +203,7 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
     }
 
     printSimulation(nprocs,procTable,duration);
+    printMetrics((size_t) current_time, nprocs, procTable);
 
     for (int p=0; p<nprocs; p++ ){
         destroyProcess(procTable[p]);
