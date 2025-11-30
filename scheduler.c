@@ -94,9 +94,35 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
     int quantum_spent = 0;
 
     while(completed_procs < nprocs) {
+        
         // Meter en la cola
         while (next_proc_index < nprocs && procTable[next_proc_index].arrive_time == current_time) {
             enqueue(&procTable[next_proc_index++]);
+        }
+
+        // Comprobar si hay procesos esperando con mayor prioridad
+        if (running_process != NULL && modality == PREEMPTIVE && (algorithm == SJF || algorithm == PRIORITIES)) {
+            int should_preempt = 0;
+            for(int i = 0; i < nprocs; i++) {
+                if (procTable[i].arrive_time <= current_time && !procTable[i].completed && procTable[i].id != running_process->id) {
+                    
+                    if (algorithm == PRIORITIES) {
+                        if (comparePriority(&procTable[i], running_process) == -1) { 
+                            should_preempt = 1; break; 
+                        }
+                    } else { // SJF
+                         int current_worked = getCurrentBurst(running_process, current_time);
+                         int remaining_current = running_process->burst - current_worked;
+                         if (procTable[i].burst < remaining_current) { 
+                             should_preempt = 1; break;
+                         }
+                    }
+                }
+            }
+            if (should_preempt) { 
+                enqueue(running_process);
+                running_process = NULL; 
+            }
         }
         
         // Pintar esperas
@@ -160,37 +186,6 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
                 enqueue(running_process);
                 running_process = NULL;
             } 
-            
-            else if (modality == PREEMPTIVE && (algorithm == SJF || algorithm == PRIORITIES)) {
-    
-                int should_preempt = 0;
-                
-                for(int i = 0; i < nprocs; i++) {
-                    if (procTable[i].arrive_time <= current_time && 
-                        !procTable[i].completed && 
-                        procTable[i].id != running_process->id) {
-                        
-                        if (algorithm == PRIORITIES) {
-                            if (comparePriority(&procTable[i], running_process) == -1) {
-                                should_preempt = 1;
-                                break; 
-                            }
-                        } else {
-                             int remaining_current = running_process->burst - proc_worked_time;
-                             
-                             if (procTable[i].burst < remaining_current) {
-                                 should_preempt = 1; 
-                                 break;
-                             }
-                        }
-                    }
-                }
-
-                if (should_preempt) { 
-                    enqueue(running_process);
-                    running_process = NULL;
-                }
-            }
         }
         
         current_time++;
