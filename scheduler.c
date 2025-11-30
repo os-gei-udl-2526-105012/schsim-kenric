@@ -117,7 +117,7 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
             }
             
             else { // SJF o PRIORITIES
-                int count = get_queue_size();
+                size_t count = get_queue_size();
                 Process* temp[count];
                 
                 for(int i=0; i<count; i++){
