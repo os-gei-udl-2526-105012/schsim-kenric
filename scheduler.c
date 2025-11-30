@@ -103,7 +103,7 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         for (int i = 0; i < nprocs; i++){
             if(procTable[i].arrive_time <= current_time && !procTable[i].completed) {
                 if (running_process == NULL || procTable[i].id != running_process->id) {
-                    procTable[i].lifecycle[current_time] = Ready;
+                    procTable[i].lifecycle[current_time] = Bloqued;
                 }
             }
         }
