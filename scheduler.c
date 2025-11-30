@@ -87,20 +87,19 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
         procTable[p].completed = false;
     }
 
+    Process* running_process = NULL;
     int current_time = 0;
     int completed_procs = 0;
-    Process* running_process = NULL;
     int next_proc_index = 0;
     int quantum_spent = 0;
 
     while(completed_procs < nprocs) {
-        // Meter en la cola los procesos que llegan
+        // Meter en la cola
         while (next_proc_index < nprocs && procTable[next_proc_index].arrive_time == current_time) {
-            enqueue(&procTable[next_proc_index]);
-            next_proc_index++;
+            enqueue(&procTable[next_proc_index++]);
         }
         
-        //Pintar procesos en cola de espera
+        // Pintar esperas
         for (int i = 0; i < nprocs; i++){
             if(procTable[i].arrive_time <= current_time && !procTable[i].completed) {
                 if (running_process == NULL || procTable[i].id != running_process->id) {
@@ -109,18 +108,37 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
             }
         }
 
-        // Si la cpu no tiene un proceso hay que darselo
-        if (running_process == NULL) {
-            switch (algorithm) {
-                case FCFS:
-                    running_process = dequeue();
-                    break;
-                case RR:
-                    running_process = dequeue();
-                    quantum_spent = 0;
-                    break;
-                case PRIORITIES:
-                    break;
+        // Planificador
+        if (running_process == NULL && get_queue_size() > 0) {   
+
+            if (algorithm == RR || algorithm == FCFS) {
+                running_process = dequeue();
+                if (algorithm == RR) { quantum_spent = 0; }
+            }
+            
+            else { // SJF o PRIORITIES
+                int count = get_queue_size();
+                Process* temp[count];
+                
+                for(int i=0; i<count; i++){
+                    temp[i] = dequeue();
+                }
+
+                int best_index = 0;
+                for(int i=1; i < count; i++){
+                
+                    if (algorithm == SJF) {
+                        if (compareBurst(temp[i], temp[best_index]) == -1) { best_index = i;} 
+                    } else {
+                        if (comparePriority(temp[i], temp[best_index]) == -1) {best_index = i;}
+                    }
+                }
+
+                running_process = temp[best_index];
+
+                for(int i=0; i < count; i++){
+                    if (i != best_index) { enqueue(temp[i]); }
+                }
             }
         }
 
@@ -129,16 +147,49 @@ int run_dispatcher(Process *procTable, size_t nprocs, int algorithm, int modalit
            
             running_process->lifecycle[current_time] = Running;
             int proc_worked_time = getCurrentBurst(running_process, current_time) + 1;
-            quantum_spent ++;
+            if (algorithm == RR) { quantum_spent ++; }
             
             if (proc_worked_time == running_process->burst) {
                 running_process->lifecycle[current_time + 1] = Finished;
                 running_process->completed = true;
                 running_process = NULL;
                 completed_procs++;
-            } else if (algorithm == RR && quantum_spent == quantum) {
+            } 
+            
+            else if (algorithm == RR && quantum_spent == quantum) {
                 enqueue(running_process);
                 running_process = NULL;
+            } 
+            
+            else if (modality == PREEMPTIVE && (algorithm == SJF || algorithm == PRIORITIES)) {
+    
+                int should_preempt = 0;
+                
+                for(int i = 0; i < nprocs; i++) {
+                    if (procTable[i].arrive_time <= current_time && 
+                        !procTable[i].completed && 
+                        procTable[i].id != running_process->id) {
+                        
+                        if (algorithm == PRIORITIES) {
+                            if (comparePriority(&procTable[i], running_process) == -1) {
+                                should_preempt = 1;
+                                break; 
+                            }
+                        } else {
+                             int remaining_current = running_process->burst - proc_worked_time;
+                             
+                             if (procTable[i].burst < remaining_current) {
+                                 should_preempt = 1; 
+                                 break;
+                             }
+                        }
+                    }
+                }
+
+                if (should_preempt) { 
+                    enqueue(running_process);
+                    running_process = NULL;
+                }
             }
         }
         
